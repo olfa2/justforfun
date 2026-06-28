@@ -1,0 +1,87 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Dark-Mode über .class (next-themes) statt prefers-color-scheme */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------- Design Tokens (Light) ---------- */
+:root {
+  --background: #ffffff;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-hover: #f7f7f8;
+  --muted: #f4f4f5;
+  --muted-foreground: #6b7280;
+  --border: #e4e4e7;
+  --sidebar: #fafafa;
+  --accent: #378add;
+  --accent-foreground: #ffffff;
+  --accent-hover: #2f7ac9;
+}
+
+/* ---------- Design Tokens (Dark – Linear-Style) ---------- */
+.dark {
+  --background: #0a0a0c;
+  --foreground: #e6e6e8;
+  --card: #141417;
+  --card-hover: #1a1a1e;
+  --muted: #1c1c20;
+  --muted-foreground: #9a9aa2;
+  --border: #26262b;
+  --sidebar: #0d0d10;
+  --accent: #378add;
+  --accent-foreground: #ffffff;
+  --accent-hover: #4a96e0;
+}
+
+/* ---------- Tokens für Tailwind-Utilities verfügbar machen ---------- */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-sidebar: var(--sidebar);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-hover: var(--accent-hover);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --radius: 0.5rem;
+}
+
+/* Standard-Rahmenfarbe = Token, damit `border` direkt passt */
+* {
+  border-color: var(--border);
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* ---------- Scrollbar (Linear-Style) ---------- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+  background-clip: padding-box;
+}

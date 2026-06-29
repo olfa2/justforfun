@@ -4,52 +4,108 @@
 /* Dark-Mode über .class (next-themes) statt prefers-color-scheme */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ---------- Design Tokens (Light) ---------- */
+/* =========================================================================
+   ATLAS – Design Tokens
+   Akzent: Indigo oklch(0.66 0.19 280) ≈ #7A6CF5
+   Dark ist Default. Semantische Farben (Status/Prio/Accent) liegen in :root
+   und gelten für beide Themes; .dark überschreibt nur die Flächen.
+   ========================================================================= */
 :root {
+  --radius: 0.6rem;
+
+  /* ---- Flächen (Light) ---- */
   --background: #ffffff;
   --foreground: #18181b;
   --card: #ffffff;
   --card-hover: #f7f7f8;
+  --popover: #ffffff;
   --muted: #f4f4f5;
   --muted-foreground: #6b7280;
+  --secondary: #e7e7ea;
   --border: #e4e4e7;
   --sidebar: #fafafa;
-  --accent: #378add;
+
+  /* ---- Akzent (Indigo – gilt für beide Themes) ---- */
+  --accent: oklch(0.66 0.19 280);
   --accent-foreground: #ffffff;
-  --accent-hover: #2f7ac9;
+  --accent-hover: oklch(0.6 0.19 280);
+  --nav-active: oklch(0.78 0.13 280);
+
+  /* ---- Status (Task-Status, überall identisch) ---- */
+  --status-done: oklch(0.72 0.15 150);
+  --status-in-progress: oklch(0.7 0.13 245);
+  --status-in-review: oklch(0.7 0.15 300);
+  --status-todo: oklch(0.8 0.13 85);
+  --status-backlog: oklch(0.62 0.02 260);
+
+  /* ---- Priorität: Textfarbe + Tint-Hintergrund ---- */
+  --prio-urgent: oklch(0.78 0.13 25);
+  --prio-urgent-bg: oklch(0.65 0.2 25 / 0.16);
+  --prio-high: oklch(0.82 0.12 60);
+  --prio-high-bg: oklch(0.72 0.16 55 / 0.16);
+  --prio-medium: oklch(0.8 0.1 245);
+  --prio-medium-bg: oklch(0.7 0.13 245 / 0.16);
+  --prio-low: oklch(0.74 0.02 260);
+  --prio-low-bg: oklch(0.62 0.02 260 / 0.18);
+
+  /* ---- Positiv-Delta (Trend +) ---- */
+  --positive: oklch(0.74 0.14 155);
 }
 
-/* ---------- Design Tokens (Dark – Linear-Style) ---------- */
+/* ---- Flächen (Dark – Atlas) ---- */
 .dark {
-  --background: #0a0a0c;
-  --foreground: #e6e6e8;
-  --card: #141417;
-  --card-hover: #1a1a1e;
-  --muted: #1c1c20;
-  --muted-foreground: #9a9aa2;
-  --border: #26262b;
-  --sidebar: #0d0d10;
-  --accent: #378add;
-  --accent-foreground: #ffffff;
-  --accent-hover: #4a96e0;
+  --background: #09090b;
+  --foreground: #ececee;
+  --card: #0f0f12;
+  --card-hover: #141417;
+  --popover: #131316;
+  --muted: #131316;
+  --muted-foreground: #8b8b93;
+  --secondary: #1c1c20;
+  --border: oklch(1 0 0 / 6%);
+  --sidebar: #0b0b0e;
+
+  --accent-hover: oklch(0.7 0.19 280);
 }
 
-/* ---------- Tokens für Tailwind-Utilities verfügbar machen ---------- */
+/* ---- Tokens für Tailwind-Utilities verfügbar machen ---- */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-hover: var(--card-hover);
+  --color-popover: var(--popover);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-secondary: var(--secondary);
   --color-border: var(--border);
   --color-sidebar: var(--sidebar);
+
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-hover: var(--accent-hover);
+  --color-nav-active: var(--nav-active);
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --radius: 0.5rem;
+  --color-status-done: var(--status-done);
+  --color-status-in-progress: var(--status-in-progress);
+  --color-status-in-review: var(--status-in-review);
+  --color-status-todo: var(--status-todo);
+  --color-status-backlog: var(--status-backlog);
+
+  --color-prio-urgent: var(--prio-urgent);
+  --color-prio-urgent-bg: var(--prio-urgent-bg);
+  --color-prio-high: var(--prio-high);
+  --color-prio-high-bg: var(--prio-high-bg);
+  --color-prio-medium: var(--prio-medium);
+  --color-prio-medium-bg: var(--prio-medium-bg);
+  --color-prio-low: var(--prio-low);
+  --color-prio-low-bg: var(--prio-low-bg);
+
+  --color-positive: var(--positive);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
+  --radius: 0.6rem;
 }
 
 /* Standard-Rahmenfarbe = Token, damit `border` direkt passt */
@@ -76,7 +132,7 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--secondary);
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: padding-box;

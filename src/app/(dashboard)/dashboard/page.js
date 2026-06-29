@@ -1,11 +1,14 @@
-import Link from "next/link";
-import { FolderKanban, Building2 } from "lucide-react";
+import { Search, Building2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { Header } from "@/components/layout/Header";
-import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { NewProjectButton } from "@/components/projects/NewProjectButton";
 import { CreateWorkspaceButton } from "@/components/workspace/CreateWorkspaceButton";
 import { getWorkspaces, getActiveWorkspaceId } from "@/lib/workspace";
+import { buildDashboard } from "@/lib/dashboard";
+import { KpiCard } from "@/components/dashboard/KpiCard";
+import { StatusDonutCard } from "@/components/dashboard/StatusDonutCard";
+import { WeeklyActivityCard } from "@/components/dashboard/WeeklyActivityCard";
+import { DeadlinesCard } from "@/components/dashboard/DeadlinesCard";
+import { ProjectProgressCard } from "@/components/dashboard/ProjectProgressCard";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -19,48 +22,61 @@ export default async function DashboardPage() {
   const workspaces = await getWorkspaces(supabase);
   const activeWorkspaceId = await getActiveWorkspaceId(workspaces);
 
-  let list = [];
+  let projects = [];
+  let tasks = [];
   if (activeWorkspaceId) {
-    const { data } = await supabase
+    const { data: pr } = await supabase
       .from("projects")
       .select("*")
-      .eq("workspace_id", activeWorkspaceId)
-      .order("created_at", { ascending: false });
-    list = data || [];
+      .eq("workspace_id", activeWorkspaceId);
+    projects = pr || [];
+
+    if (projects.length) {
+      const ids = projects.map((p) => p.id);
+      const { data: tk } = await supabase
+        .from("tasks")
+        .select("*")
+        .in("project_id", ids);
+      tasks = tk || [];
+    }
   }
 
-  const stats = [
-    { label: "Projekte", value: list.length },
-    { label: "Aktiv", value: list.filter((p) => p.status === "active").length },
-    {
-      label: "Pausiert",
-      value: list.filter((p) => p.status === "on_hold").length,
-    },
-    {
-      label: "Abgeschlossen",
-      value: list.filter((p) => p.status === "completed").length,
-    },
-  ];
+  const d = buildDashboard(projects, tasks);
 
   return (
     <>
-      <Header
-        title="Dashboard"
-        description={name ? `Willkommen zurück, ${name}` : "Übersicht"}
-      >
-        {workspaces.length > 0 && (
-          <NewProjectButton
-            workspaces={workspaces}
-            activeWorkspaceId={activeWorkspaceId}
-          />
-        )}
-      </Header>
+      {/* Header */}
+      <header className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-border bg-background/80 px-7 py-[18px] backdrop-blur">
+        <div>
+          <h1 className="text-[19px] font-semibold tracking-[-0.01em]">
+            Übersicht
+          </h1>
+          <p className="text-[13px] text-muted-foreground">
+            {name ? `Willkommen zurück, ${name}` : "Dein Überblick"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <div className="hidden h-[34px] w-[200px] items-center gap-2 rounded-[9px] border border-border bg-popover px-3 text-[13px] text-muted-foreground sm:flex">
+            <Search className="h-3.5 w-3.5" />
+            <span className="flex-1">Suchen</span>
+            <kbd className="rounded border border-border px-1.5 font-mono text-[11px]">
+              ⌘K
+            </kbd>
+          </div>
+          {workspaces.length > 0 && (
+            <NewProjectButton
+              workspaces={workspaces}
+              activeWorkspaceId={activeWorkspaceId}
+            />
+          )}
+        </div>
+      </header>
 
-      <div className="space-y-8 p-6">
-        {workspaces.length === 0 ? (
-          // Onboarding: noch kein Workspace vorhanden
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 px-6 py-20 text-center">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground">
+      {workspaces.length === 0 ? (
+        // Onboarding: noch kein Workspace
+        <div className="p-7">
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card/50 px-6 py-20 text-center">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-popover text-muted-foreground">
               <Building2 className="h-6 w-6" />
             </div>
             <h2 className="text-base font-semibold">
@@ -72,61 +88,52 @@ export default async function DashboardPage() {
             </p>
             <CreateWorkspaceButton label="Workspace erstellen" />
           </div>
-        ) : (
-          <>
-            {/* Kennzahlen */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {stats.map((stat) => (
-                <div
-                  key={stat.label}
-                  className="rounded-lg border border-border bg-card p-4"
-                >
-                  <p className="text-2xl font-semibold tabular-nums">
-                    {stat.value}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {stat.label}
-                  </p>
-                </div>
-              ))}
-            </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-[18px] px-7 py-6">
+          {/* KPI-Reihe */}
+          <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+            <KpiCard
+              label="Aktive Projekte"
+              value={d.kpis.activeProjects}
+              delta={
+                d.kpis.newActiveProjects > 0
+                  ? `+${d.kpis.newActiveProjects}`
+                  : null
+              }
+            />
+            <KpiCard
+              label="Offene Aufgaben"
+              value={d.kpis.openTasks}
+              delta={
+                d.kpis.completedThisWeek > 0
+                  ? `−${d.kpis.completedThisWeek}`
+                  : null
+              }
+            />
+            <KpiCard label="Fällig diese Woche" value={d.kpis.dueThisWeek} />
+            <KpiCard
+              label="Abschlussrate"
+              value={d.kpis.completionRate}
+              suffix="%"
+            />
+          </div>
 
-            {/* Projekte */}
-            <section>
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-sm font-semibold">Deine Projekte</h2>
-                {list.length > 0 && (
-                  <Link
-                    href="/projects"
-                    className="text-xs font-medium text-accent hover:underline"
-                  >
-                    Alle anzeigen
-                  </Link>
-                )}
-              </div>
+          {/* Chart-Reihe */}
+          <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.1fr_1.2fr_1fr]">
+            <StatusDonutCard
+              statusCounts={d.statusCounts}
+              total={d.totalTasks}
+              completionRate={d.kpis.completionRate}
+            />
+            <WeeklyActivityCard weekly={d.weekly} />
+            <DeadlinesCard deadlines={d.deadlines} />
+          </div>
 
-              {list.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card/50 px-6 py-16 text-center">
-                  <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground">
-                    <FolderKanban className="h-5 w-5" />
-                  </div>
-                  <h3 className="text-sm font-medium">Noch keine Projekte</h3>
-                  <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                    Lege über „Neues Projekt" dein erstes Projekt in diesem
-                    Workspace an.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {list.slice(0, 6).map((project) => (
-                    <ProjectCard key={project.id} project={project} />
-                  ))}
-                </div>
-              )}
-            </section>
-          </>
-        )}
-      </div>
+          {/* Projektfortschritt */}
+          <ProjectProgressCard progress={d.progress} />
+        </div>
+      )}
     </>
   );
 }

@@ -3,7 +3,12 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireUser, requireWorkspaceMember, requireWorkspaceOwner } from "@/lib/authz";
+import {
+  requireUser,
+  requireWorkspaceMember,
+  requireWorkspaceOwner,
+  requireWorkspaceOwnerStrict,
+} from "@/lib/authz";
 import { slugify } from "@/lib/utils";
 
 // Workspace anlegen + den Ersteller manuell als owner in workspace_members
@@ -84,9 +89,10 @@ export async function updateWorkspace(workspaceId, name) {
 }
 
 // Workspace löschen (inkl. zugehöriger Daten, sofern DB-Cascade gesetzt ist).
+// Bewusst owner-only (strikt), Admins dürfen NICHT löschen.
 export async function deleteWorkspace(workspaceId) {
   const supabase = await createClient();
-  const access = await requireWorkspaceOwner(supabase, workspaceId);
+  const access = await requireWorkspaceOwnerStrict(supabase, workspaceId);
   if (access.error) return { error: access.error };
 
   const { error } = await supabase
@@ -102,4 +108,65 @@ export async function deleteWorkspace(workspaceId) {
 
   revalidatePath("/", "layout");
   return { ok: true };
+}
+
+// Rolle des eingeloggten Users im Workspace (für UI-Gating).
+export async function getCurrentMemberRole(workspaceId) {
+  if (!workspaceId) return { role: null };
+  const supabase = await createClient();
+  const auth = await requireUser(supabase);
+  if (auth.error) return { role: null };
+
+  const { data } = await supabase
+    .from("workspace_members")
+    .select("role")
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+
+  return { role: data?.role ?? null };
+}
+
+// Alle Mitglieder eines Workspaces inkl. Profil-Infos.
+// Zwei-Query-Variante (members + profiles separat): workspace_members.user_id
+// zeigt auf auth.users, daher kein direkter PostgREST-Embed zu profiles.
+export async function getWorkspaceMembers(workspaceId) {
+  if (!workspaceId) return { members: [] };
+  const supabase = await createClient();
+  const access = await requireWorkspaceMember(supabase, workspaceId);
+  if (access.error) return { error: access.error, members: [] };
+
+  const { data, error } = await supabase
+    .from("workspace_members")
+    .select("user_id, role, joined_at")
+    .eq("workspace_id", workspaceId)
+    .order("joined_at", { ascending: true });
+
+  if (error) return { error: error.message, members: [] };
+
+  const rows = data || [];
+  const userIds = rows.map((m) => m.user_id);
+
+  // Profile separat laden und mergen (best effort – fehlt die Tabelle,
+  // bleibt der Name "Unbekannt", Rollen bleiben korrekt).
+  let profileMap = new Map();
+  if (userIds.length) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url")
+      .in("id", userIds);
+    profileMap = new Map((profiles || []).map((p) => [p.id, p]));
+  }
+
+  const members = rows.map((m) => {
+    const p = profileMap.get(m.user_id);
+    return {
+      userId: m.user_id,
+      role: m.role,
+      name: p?.full_name || "Unbekannt",
+      avatarUrl: p?.avatar_url || null,
+    };
+  });
+
+  return { members };
 }

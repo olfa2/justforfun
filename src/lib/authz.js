@@ -1,6 +1,7 @@
 import "server-only";
 
 const ACCESS_ERROR = "Kein Zugriff auf diese Ressource.";
+const ROLE_ERROR = "Keine Berechtigung für diese Aktion.";
 
 export async function requireUser(supabase) {
   const {
@@ -27,21 +28,46 @@ export async function requireWorkspaceMember(supabase, workspaceId) {
   if (error) return { error: error.message };
   if (!data) return { error: ACCESS_ERROR };
 
+  // Echte Membership-Prüfung (zweite Verteidigungslinie neben RLS).
+  const { data: isMember } = await supabase.rpc("is_workspace_member", {
+    ws_id: workspaceId,
+  });
+  if (!isMember) return { error: ACCESS_ERROR };
+
   return { user: auth.user, workspace: data };
 }
 
+// Owner ODER Admin dürfen Owner-nahe Aktionen ausführen (Rename etc.).
 export async function requireWorkspaceOwner(supabase, workspaceId) {
   const access = await requireWorkspaceMember(supabase, workspaceId);
   if (access.error) return access;
 
-  if (access.workspace.owner_id !== access.user.id) {
-    return { error: "Nur Owner dürfen diesen Workspace ändern." };
+  const { data: allowed } = await supabase.rpc("has_workspace_role", {
+    ws_id: workspaceId,
+    allowed_roles: ["owner", "admin"],
+  });
+  if (!allowed) {
+    return { error: "Nur Owner oder Admins dürfen diesen Workspace ändern." };
   }
 
   return access;
 }
 
-export async function requireProjectAccess(supabase, projectId) {
+// Strikte Variante: NUR der Owner. Für Aktionen, die wirklich owner-only sein
+// müssen (z. B. Workspace löschen). Bewusst getrennt von requireWorkspaceOwner,
+// damit Admins dort nicht durchrutschen.
+export async function requireWorkspaceOwnerStrict(supabase, workspaceId) {
+  const access = await requireWorkspaceMember(supabase, workspaceId);
+  if (access.error) return access;
+
+  if (access.workspace.owner_id !== access.user.id) {
+    return { error: "Nur der Owner darf diese Aktion ausführen." };
+  }
+
+  return access;
+}
+
+export async function requireProjectAccess(supabase, projectId, options = {}) {
   if (!projectId) return { error: "Projekt fehlt." };
 
   const auth = await requireUser(supabase);
@@ -56,10 +82,23 @@ export async function requireProjectAccess(supabase, projectId) {
   if (error) return { error: error.message };
   if (!data) return { error: ACCESS_ERROR };
 
+  const { data: isMember } = await supabase.rpc("is_project_member", {
+    project_id_input: projectId,
+  });
+  if (!isMember) return { error: ACCESS_ERROR };
+
+  if (options.roles) {
+    const { data: hasRole } = await supabase.rpc("has_project_role", {
+      project_id_input: projectId,
+      allowed_roles: options.roles,
+    });
+    if (!hasRole) return { error: ROLE_ERROR };
+  }
+
   return { user: auth.user, project: data };
 }
 
-export async function requireTaskAccess(supabase, taskId) {
+export async function requireTaskAccess(supabase, taskId, options = {}) {
   if (!taskId) return { error: "Aufgabe fehlt." };
 
   const auth = await requireUser(supabase);
@@ -74,10 +113,23 @@ export async function requireTaskAccess(supabase, taskId) {
   if (error) return { error: error.message };
   if (!data) return { error: ACCESS_ERROR };
 
+  const { data: isMember } = await supabase.rpc("is_project_member", {
+    project_id_input: data.project_id,
+  });
+  if (!isMember) return { error: ACCESS_ERROR };
+
+  if (options.roles) {
+    const { data: hasRole } = await supabase.rpc("has_project_role", {
+      project_id_input: data.project_id,
+      allowed_roles: options.roles,
+    });
+    if (!hasRole) return { error: ROLE_ERROR };
+  }
+
   return { user: auth.user, task: data };
 }
 
-export async function requireEventAccess(supabase, eventId) {
+export async function requireEventAccess(supabase, eventId, options = {}) {
   if (!eventId) return { error: "Termin fehlt." };
 
   const auth = await requireUser(supabase);
@@ -91,6 +143,19 @@ export async function requireEventAccess(supabase, eventId) {
 
   if (error) return { error: error.message };
   if (!data) return { error: ACCESS_ERROR };
+
+  const { data: isMember } = await supabase.rpc("is_workspace_member", {
+    ws_id: data.workspace_id,
+  });
+  if (!isMember) return { error: ACCESS_ERROR };
+
+  if (options.roles) {
+    const { data: hasRole } = await supabase.rpc("has_workspace_role", {
+      ws_id: data.workspace_id,
+      allowed_roles: options.roles,
+    });
+    if (!hasRole) return { error: ROLE_ERROR };
+  }
 
   return { user: auth.user, event: data };
 }

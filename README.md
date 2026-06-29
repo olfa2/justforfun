@@ -74,3 +74,9 @@ src/
 | `npm run build` | Produktions-Build                |
 | `npm run start` | Produktionsserver (nach Build)   |
 | `npm run lint`  | ESLint                           |
+
+
+TODO:
+
+Zeiterfassung in Ecxel/PDF drucken können
+alle punkte noch fertig machen 4erledigt

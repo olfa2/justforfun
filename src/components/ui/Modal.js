@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Einfaches, zugängliches Modal. Schließt per Esc, Backdrop-Klick oder X-Button.
+// Wird per Portal an document.body gerendert, damit es Containing-Blocks von
+// Ancestors entkommt (z. B. `backdrop-blur` im Header erzeugt sonst einen
+// Containing Block für `position: fixed` und das Modal wird abgeschnitten).
 export function Modal({ open, onClose, title, children, className }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   useEffect(() => {
     if (!open) return;
 
@@ -21,9 +28,9 @@ export function Modal({ open, onClose, title, children, className }) {
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-6">
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
@@ -50,6 +57,7 @@ export function Modal({ open, onClose, title, children, className }) {
         </div>
         <div className="px-5 py-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

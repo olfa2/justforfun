@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -10,23 +10,22 @@ const fieldClass =
   "w-full rounded-md border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent transition-colors";
 
 // Workspace umbenennen oder löschen.
-export function WorkspaceSettingsModal({
-  open,
+export function WorkspaceSettingsModal(props) {
+  if (!props.open) return null;
+
+  return <WorkspaceSettingsModalContent key={props.workspace?.id} {...props} />;
+}
+
+function WorkspaceSettingsModalContent({
   onClose,
   workspace,
   onSaved,
   onDeleted,
 }) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(workspace?.name || "");
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    setName(workspace?.name || "");
-    setError("");
-  }, [open, workspace]);
 
   async function handleSave(e) {
     e.preventDefault();
@@ -64,7 +63,7 @@ export function WorkspaceSettingsModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Workspace verwalten">
+    <Modal open onClose={onClose} title="Workspace verwalten">
       <form onSubmit={handleSave} className="space-y-4">
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Name</label>

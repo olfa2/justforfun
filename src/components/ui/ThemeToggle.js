@@ -1,18 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useHydrated } from "@/hooks/useHydrated";
 
 // Umschalter zwischen Dark- und Light-Mode.
 // `mounted`-Guard verhindert Hydration-Mismatch (Theme ist erst client-seitig bekannt).
 export function ThemeToggle({ className, showLabel = false }) {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
-
+  const mounted = useHydrated();
   const isDark = resolvedTheme === "dark";
 
   return (

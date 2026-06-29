@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
@@ -17,8 +17,25 @@ function toDateInput(d) {
   return `${x.getFullYear()}-${m}-${day}`;
 }
 
-export function EventModal({
-  open,
+function initialForm(defaultDate, defaultTime) {
+  return {
+    title: "",
+    date: toDateInput(defaultDate || new Date()),
+    time: defaultTime || "09:00",
+    allDay: false,
+    projectId: "",
+    description: "",
+  };
+}
+
+export function EventModal(props) {
+  if (!props.open) return null;
+
+  const key = `${props.defaultDate?.toString() || ""}-${props.defaultTime || ""}`;
+  return <EventModalContent key={key} {...props} />;
+}
+
+function EventModalContent({
   onClose,
   projects = [],
   workspaceId,
@@ -26,29 +43,9 @@ export function EventModal({
   defaultTime,
 }) {
   const router = useRouter();
-  const [form, setForm] = useState({
-    title: "",
-    date: "",
-    time: "09:00",
-    allDay: false,
-    projectId: "",
-    description: "",
-  });
+  const [form, setForm] = useState(() => initialForm(defaultDate, defaultTime));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    setError("");
-    setForm((f) => ({
-      ...f,
-      title: "",
-      description: "",
-      date: toDateInput(defaultDate || new Date()),
-      time: defaultTime || "09:00",
-      allDay: false,
-    }));
-  }, [open, defaultDate, defaultTime]);
 
   function update(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -69,7 +66,7 @@ export function EventModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Neuer Termin">
+    <Modal open onClose={onClose} title="Neuer Termin">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Titel</label>

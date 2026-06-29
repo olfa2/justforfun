@@ -1,0 +1,113 @@
+/* =========================================================================
+   ATLAS — Design Tokens für das Dashboard-Redesign (Variante A)
+   Next.js 16 + Tailwind v4 · shadcn-Token-Konvention
+   -------------------------------------------------------------------------
+   In deine globals.css einfügen. Ersetzt die Werte deines bestehenden
+   .dark-Blocks (du nutzt bereits @theme / @custom-variant für Dark-Mode).
+   Die Variablennamen folgen deiner vorhandenen Konvention
+   (--background, --card, --border, --muted-foreground …), du musst also
+   in den Komponenten i.d.R. NICHTS umbenennen — nur die Werte landen hier.
+   ========================================================================= */
+
+:root {
+  --radius: 0.6rem;                 /* ~10px Basisradius (Buttons, Inputs) */
+}
+
+.dark {
+  /* ---- Flächen ---- */
+  --background:            #09090B;  /* App-Hintergrund */
+  --foreground:            #ECECEE;  /* Primärtext */
+  --card:                  #0F0F12;  /* Panels / Karten */
+  --card-foreground:       #ECECEE;
+  --popover:               #131316;  /* erhöhte Flächen (Kanban-Karte, Menü) */
+  --popover-foreground:    #ECECEE;
+
+  /* ---- Akzent (Indigo — das Herz von Atlas) ---- */
+  --primary:               oklch(0.66 0.19 280);   /* ≈ #7A6CF5 — Buttons, aktiv, Fokus */
+  --primary-foreground:    #FFFFFF;
+  --ring:                  oklch(0.66 0.19 280);
+
+  /* ---- Sekundär / Muted ---- */
+  --secondary:             #1C1C20;
+  --secondary-foreground:  #ECECEE;
+  --muted:                 #131316;
+  --muted-foreground:      #8B8B93;  /* Labels, Sekundärtext */
+  --accent:               #1A1A1E;   /* Hover-Flächen */
+  --accent-foreground:     #ECECEE;
+
+  /* ---- Linien & Inputs ---- */
+  --border:                oklch(1 0 0 / 6%);   /* = rgba(255,255,255,.06) */
+  --input:                 oklch(1 0 0 / 8%);
+
+  /* ---- Sidebar (Icon-Rail) ---- */
+  --sidebar:                   #0B0B0E;
+  --sidebar-foreground:        #8B8B93;
+  --sidebar-primary:           oklch(0.66 0.19 280);
+  --sidebar-primary-foreground:#FFFFFF;
+  --sidebar-accent:            oklch(0.66 0.19 280 / 0.14); /* aktiver Nav-Tint */
+  --sidebar-border:            oklch(1 0 0 / 5%);
+
+  /* ---- Charts = Task-Status-Farben (Reihenfolge = Donut) ---- */
+  --chart-1: oklch(0.72 0.15 150);  /* done       — Erledigt   (grün)   */
+  --chart-2: oklch(0.70 0.13 245);  /* in_progress— In Arbeit  (blau)   */
+  --chart-3: oklch(0.70 0.15 300);  /* in_review  — In Review  (violett)*/
+  --chart-4: oklch(0.80 0.13 85);   /* todo       — To Do      (amber)  */
+  --chart-5: oklch(0.62 0.02 260);  /* backlog    — Backlog    (grau)   */
+
+  /* ---- Semantische Status-Token (für Badges, Punkte, Spalten-Header) ---- */
+  --status-done:        oklch(0.72 0.15 150);
+  --status-in-progress: oklch(0.70 0.13 245);
+  --status-in-review:   oklch(0.70 0.15 300);
+  --status-todo:        oklch(0.80 0.13 85);
+  --status-backlog:     oklch(0.62 0.02 260);
+
+  /* ---- Priorität: [Textfarbe] auf [Tint-Hintergrund] ---- */
+  --prio-urgent:        oklch(0.78 0.13 25);     /* Dringend */
+  --prio-urgent-bg:     oklch(0.65 0.20 25 / 0.16);
+  --prio-high:          oklch(0.82 0.12 60);     /* Hoch */
+  --prio-high-bg:       oklch(0.72 0.16 55 / 0.16);
+  --prio-medium:        oklch(0.80 0.10 245);    /* Mittel */
+  --prio-medium-bg:     oklch(0.70 0.13 245 / 0.16);
+  --prio-low:           oklch(0.74 0.02 260);    /* Niedrig */
+  --prio-low-bg:        oklch(0.62 0.02 260 / 0.18);
+
+  /* ---- Positiv-Delta (Trend +) ---- */
+  --positive:           oklch(0.74 0.14 155);
+}
+
+/* =========================================================================
+   Tailwind v4 — falls du die semantischen Token als Utilities brauchst
+   (z.B. bg-status-done, text-prio-urgent). In deinen @theme-Block:
+   -------------------------------------------------------------------------
+   @theme inline {
+     --color-status-done:        var(--status-done);
+     --color-status-in-progress: var(--status-in-progress);
+     --color-status-in-review:   var(--status-in-review);
+     --color-status-todo:        var(--status-todo);
+     --color-status-backlog:     var(--status-backlog);
+     --color-prio-urgent:        var(--prio-urgent);
+     --color-prio-urgent-bg:     var(--prio-urgent-bg);
+     --color-prio-high:          var(--prio-high);
+     --color-prio-high-bg:       var(--prio-high-bg);
+     --color-prio-medium:        var(--prio-medium);
+     --color-prio-medium-bg:     var(--prio-medium-bg);
+     --color-prio-low:           var(--prio-low);
+     --color-prio-low-bg:        var(--prio-low-bg);
+     --color-positive:           var(--positive);
+   }
+   ========================================================================= */
+
+/* =========================================================================
+   TYPOGRAFIE
+   -------------------------------------------------------------------------
+   UI/Body:   Geist
+   Zahlen / Labels (uppercase) / Code-artiges: Geist Mono
+   (Du nutzt aktuell Inter — Geist ist die Linear-nahe Alternative.
+    Falls du bei Inter bleiben willst: einfach Geist→Inter ersetzen,
+    Geist Mono → "JetBrains Mono" oder "Geist Mono".)
+
+   next/font Beispiel (app/layout.tsx):
+     import { Geist, Geist_Mono } from "next/font/google";
+     const geist = Geist({ subsets:["latin"], variable:"--font-sans" });
+     const geistMono = Geist_Mono({ subsets:["latin"], variable:"--font-mono" });
+   ========================================================================= */

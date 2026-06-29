@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTheme } from "next-themes";
 import {
   LayoutDashboard,
@@ -19,6 +19,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { WorkspaceSwitcher } from "@/components/workspace/WorkspaceSwitcher";
 import { cn, getInitials, stringToColor } from "@/lib/utils";
+import { useHydrated } from "@/hooks/useHydrated";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -144,8 +145,7 @@ export function Sidebar({ user, workspaces = [], activeWorkspaceId }) {
 // Dark/Light-Umschalter im Sidebar-Stil (mounted-Guard gegen Hydration-Mismatch).
 function ThemeRow() {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHydrated();
   const isDark = resolvedTheme === "dark";
 
   return (

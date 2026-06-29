@@ -27,8 +27,37 @@ export function useTasks(projectId) {
   }, [projectId]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    let ignore = false;
+
+    async function load() {
+      if (!projectId) {
+        await Promise.resolve();
+        if (!ignore) {
+          setTasks([]);
+          setLoading(false);
+        }
+        return;
+      }
+
+      const supabase = createClient();
+      const { data } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: true });
+
+      if (!ignore) {
+        setTasks(data || []);
+        setLoading(false);
+      }
+    }
+
+    load();
+
+    return () => {
+      ignore = true;
+    };
+  }, [projectId]);
 
   return { tasks, loading, refresh, setTasks };
 }

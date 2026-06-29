@@ -2,18 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireProjectAccess, requireWorkspaceMember } from "@/lib/authz";
 
 // Neues Projekt in einem Workspace anlegen.
 export async function createProject(input) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Nicht angemeldet." };
 
   const name = (input?.name || "").trim();
   if (!name) return { error: "Bitte einen Projektnamen eingeben." };
   if (!input?.workspaceId) return { error: "Bitte einen Workspace wählen." };
+
+  const access = await requireWorkspaceMember(supabase, input.workspaceId);
+  if (access.error) return { error: access.error };
 
   const { data, error } = await supabase
     .from("projects")
@@ -25,7 +25,7 @@ export async function createProject(input) {
       color: input.color || null,
       start_date: input.start_date || null,
       due_date: input.due_date || null,
-      created_by: user.id,
+      created_by: access.user.id,
     })
     .select()
     .single();
@@ -39,6 +39,8 @@ export async function createProject(input) {
 // Projekt bearbeiten (nur übergebene Felder).
 export async function updateProject(projectId, patch) {
   const supabase = await createClient();
+  const access = await requireProjectAccess(supabase, projectId);
+  if (access.error) return { error: access.error };
 
   const update = {};
   if (patch.name !== undefined) update.name = patch.name.trim();
@@ -69,6 +71,9 @@ export async function updateProject(projectId, patch) {
 // Projekt löschen.
 export async function deleteProject(projectId) {
   const supabase = await createClient();
+  const access = await requireProjectAccess(supabase, projectId);
+  if (access.error) return { error: access.error };
+
   const { error } = await supabase
     .from("projects")
     .delete()

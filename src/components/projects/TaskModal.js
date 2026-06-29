@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -18,8 +18,29 @@ const emptyForm = {
   due_date: "",
 };
 
-export function TaskModal({
-  open,
+function getInitialForm(initialTask, defaultStatus) {
+  if (initialTask) {
+    return {
+      title: initialTask.title || "",
+      description: initialTask.description || "",
+      status: initialTask.status || "backlog",
+      priority: initialTask.priority || "medium",
+      assignee_id: initialTask.assignee_id || "",
+      due_date: initialTask.due_date || "",
+    };
+  }
+
+  return { ...emptyForm, status: defaultStatus || "backlog" };
+}
+
+export function TaskModal(props) {
+  if (!props.open) return null;
+
+  const key = props.initialTask?.id || `new-${props.defaultStatus || ""}`;
+  return <TaskModalContent key={key} {...props} />;
+}
+
+function TaskModalContent({
   onClose,
   onSubmit,
   onDelete,
@@ -27,30 +48,14 @@ export function TaskModal({
   defaultStatus,
   currentUser,
 }) {
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(() =>
+    getInitialForm(initialTask, defaultStatus)
+  );
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
   const isEdit = Boolean(initialTask);
-
-  // Formular beim Öffnen mit den Task-Daten (oder Defaults) füllen.
-  useEffect(() => {
-    if (!open) return;
-    setError("");
-    if (initialTask) {
-      setForm({
-        title: initialTask.title || "",
-        description: initialTask.description || "",
-        status: initialTask.status || "backlog",
-        priority: initialTask.priority || "medium",
-        assignee_id: initialTask.assignee_id || "",
-        due_date: initialTask.due_date || "",
-      });
-    } else {
-      setForm({ ...emptyForm, status: defaultStatus || "backlog" });
-    }
-  }, [open, initialTask, defaultStatus]);
 
   function update(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -79,7 +84,7 @@ export function TaskModal({
 
   return (
     <Modal
-      open={open}
+      open
       onClose={onClose}
       title={isEdit ? "Aufgabe bearbeiten" : "Neue Aufgabe"}
     >
@@ -147,9 +152,7 @@ export function TaskModal({
               className={fieldClass}
             >
               <option value="">Niemand</option>
-              <option value={currentUser?.id || ""}>
-                Mir zuweisen
-              </option>
+              <option value={currentUser?.id || ""}>Mir zuweisen</option>
             </select>
           </div>
           <div className="space-y-1.5">

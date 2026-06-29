@@ -47,7 +47,9 @@ const FILTERS = [
 ];
 
 function renderMessage(n) {
-  const obj = <b className="font-medium text-foreground">„{n.title}"</b>;
+  const obj = (
+    <b className="font-medium text-foreground">{`„${n.title}"`}</b>
+  );
   switch (n.type) {
     case "assignment":
       return <>Dir wurde {obj} zugewiesen</>;

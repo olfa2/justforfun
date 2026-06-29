@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import {
+  requireEventAccess,
+  requireProjectAccess,
+  requireWorkspaceMember,
+} from "@/lib/authz";
 
 // Neuen Termin/Event anlegen.
 export async function createEvent({
@@ -14,15 +19,22 @@ export async function createEvent({
   allDay,
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Nicht angemeldet." };
 
   const t = (title || "").trim();
   if (!t) return { error: "Bitte einen Titel eingeben." };
   if (!workspaceId) return { error: "Workspace fehlt." };
   if (!date) return { error: "Bitte ein Datum wählen." };
+
+  const workspaceAccess = await requireWorkspaceMember(supabase, workspaceId);
+  if (workspaceAccess.error) return { error: workspaceAccess.error };
+
+  if (projectId) {
+    const projectAccess = await requireProjectAccess(supabase, projectId);
+    if (projectAccess.error) return { error: projectAccess.error };
+    if (projectAccess.project.workspace_id !== workspaceId) {
+      return { error: "Projekt gehört nicht zu diesem Workspace." };
+    }
+  }
 
   const startIso = allDay
     ? new Date(`${date}T00:00:00`).toISOString()
@@ -38,7 +50,7 @@ export async function createEvent({
       start_at: startIso,
       end_at: null,
       all_day: !!allDay,
-      created_by: user.id,
+      created_by: workspaceAccess.user.id,
     })
     .select()
     .single();
@@ -50,8 +62,12 @@ export async function createEvent({
 
 export async function deleteEvent(eventId) {
   const supabase = await createClient();
+  const access = await requireEventAccess(supabase, eventId);
+  if (access.error) return { error: access.error };
+
   const { error } = await supabase.from("events").delete().eq("id", eventId);
   if (error) return { error: error.message };
+
   revalidatePath("/calendar");
   return { ok: true };
 }

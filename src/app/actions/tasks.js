@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireProjectAccess, requireTaskAccess } from "@/lib/authz";
 import { createNotification } from "@/lib/notify";
 
 // Workspace-ID zu einem Projekt holen (für Benachrichtigungs-Scoping/RLS).
@@ -14,17 +15,16 @@ async function projectWorkspaceId(supabase, projectId) {
   return data?.workspace_id ?? null;
 }
 
-// Neue Aufgabe anlegen – sort_order ans Ende der Zielspalte.
+// Neue Aufgabe anlegen - sort_order ans Ende der Zielspalte.
 export async function createTask(input) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Nicht angemeldet." };
 
   const title = (input?.title || "").trim();
   if (!title) return { error: "Bitte einen Titel eingeben." };
   if (!input?.projectId) return { error: "Projekt fehlt." };
+
+  const access = await requireProjectAccess(supabase, input.projectId);
+  if (access.error) return { error: access.error };
 
   const status = input.status || "backlog";
 
@@ -49,17 +49,17 @@ export async function createTask(input) {
       assignee_id: input.assignee_id || null,
       due_date: input.due_date || null,
       sort_order: sortOrder,
-      created_by: user.id,
+      created_by: access.user.id,
     })
     .select()
     .single();
   if (error) return { error: error.message };
 
-  // Benachrichtigung an den Zugewiesenen
+  // Benachrichtigung an den Zugewiesenen.
   if (data.assignee_id) {
     await createNotification(supabase, {
       user_id: data.assignee_id,
-      actor_id: user.id,
+      actor_id: access.user.id,
       workspace_id: await projectWorkspaceId(supabase, input.projectId),
       project_id: input.projectId,
       task_id: data.id,
@@ -73,18 +73,12 @@ export async function createTask(input) {
 }
 
 // Bestehende Aufgabe bearbeiten (nur übergebene Felder).
-export async function updateTask(taskId, patch) {
+export async function updateTask(taskId, patch = {}) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const access = await requireTaskAccess(supabase, taskId);
+  if (access.error) return { error: access.error };
 
-  // Vorzustand für Änderungserkennung (Zuweisung/Status -> Benachrichtigung)
-  const { data: before } = await supabase
-    .from("tasks")
-    .select("assignee_id, status, project_id, title")
-    .eq("id", taskId)
-    .maybeSingle();
+  const before = access.task;
 
   const update = {};
   if (patch.title !== undefined) update.title = patch.title.trim();
@@ -96,6 +90,8 @@ export async function updateTask(taskId, patch) {
     update.assignee_id = patch.assignee_id || null;
   if (patch.due_date !== undefined) update.due_date = patch.due_date || null;
 
+  if (update.title === "") return { error: "Bitte einen Titel eingeben." };
+
   const { data, error } = await supabase
     .from("tasks")
     .update(update)
@@ -104,57 +100,76 @@ export async function updateTask(taskId, patch) {
     .single();
   if (error) return { error: error.message };
 
-  // Benachrichtigungen
-  if (before && user) {
-    const assigneeChanged =
-      update.assignee_id && update.assignee_id !== before.assignee_id;
-    const statusChanged =
-      update.status && update.status !== before.status;
+  // Benachrichtigungen.
+  const assigneeChanged =
+    update.assignee_id && update.assignee_id !== before.assignee_id;
+  const statusChanged = update.status && update.status !== before.status;
 
-    if (assigneeChanged || (statusChanged && data.assignee_id)) {
-      const wsId = await projectWorkspaceId(supabase, before.project_id);
-      if (assigneeChanged) {
-        await createNotification(supabase, {
-          user_id: update.assignee_id,
-          actor_id: user.id,
-          workspace_id: wsId,
-          project_id: before.project_id,
-          task_id: taskId,
-          type: "assignment",
-          title: data.title,
-        });
-      }
-      if (statusChanged && data.assignee_id) {
-        await createNotification(supabase, {
-          user_id: data.assignee_id,
-          actor_id: user.id,
-          workspace_id: wsId,
-          project_id: before.project_id,
-          task_id: taskId,
-          type: "status_change",
-          title: data.title,
-          status: update.status,
-        });
-      }
+  if (assigneeChanged || (statusChanged && data.assignee_id)) {
+    const wsId = await projectWorkspaceId(supabase, before.project_id);
+    if (assigneeChanged) {
+      await createNotification(supabase, {
+        user_id: update.assignee_id,
+        actor_id: access.user.id,
+        workspace_id: wsId,
+        project_id: before.project_id,
+        task_id: taskId,
+        type: "assignment",
+        title: data.title,
+      });
+    }
+    if (statusChanged && data.assignee_id) {
+      await createNotification(supabase, {
+        user_id: data.assignee_id,
+        actor_id: access.user.id,
+        workspace_id: wsId,
+        project_id: before.project_id,
+        task_id: taskId,
+        type: "status_change",
+        title: data.title,
+        status: update.status,
+      });
     }
   }
 
-  if (patch.projectId) revalidatePath(`/projects/${patch.projectId}`);
+  revalidatePath(`/projects/${patch.projectId || before.project_id}`);
   return { data };
 }
 
 // Aufgabe löschen.
 export async function deleteTask(taskId, projectId) {
   const supabase = await createClient();
+  const access = await requireTaskAccess(supabase, taskId);
+  if (access.error) return { error: access.error };
+
   const { error } = await supabase.from("tasks").delete().eq("id", taskId);
   if (error) return { error: error.message };
-  if (projectId) revalidatePath(`/projects/${projectId}`);
+
+  revalidatePath(`/projects/${projectId || access.task.project_id}`);
   return { ok: true };
 }
 
 // Drag & Drop: Status setzen und sort_order der Zielspalte neu vergeben.
 export async function moveTask({ taskId, newStatus, orderedIds }) {
   const supabase = await createClient();
+  const access = await requireTaskAccess(supabase, taskId);
+  if (access.error) return { error: access.error };
+
+  const ids = Array.isArray(orderedIds) ? [...new Set(orderedIds)] : [];
+  if (ids.length) {
+    const { data: orderedTasks, error: orderError } = await supabase
+      .from("tasks")
+      .select("id, project_id")
+      .in("id", ids);
+
+    if (orderError) return { error: orderError.message };
+    if (
+      orderedTasks.length !== ids.length ||
+      orderedTasks.some((task) => task.project_id !== access.task.project_id)
+    ) {
+      return { error: "Ungültige Sortierung." };
+    }
+  }
 
   const { error: statusError } = await supabase
     .from("tasks")
@@ -162,13 +177,14 @@ export async function moveTask({ taskId, newStatus, orderedIds }) {
     .eq("id", taskId);
   if (statusError) return { error: statusError.message };
 
-  if (Array.isArray(orderedIds) && orderedIds.length) {
+  if (ids.length) {
     await Promise.all(
-      orderedIds.map((id, index) =>
+      ids.map((id, index) =>
         supabase.from("tasks").update({ sort_order: index }).eq("id", id)
       )
     );
   }
 
+  revalidatePath(`/projects/${access.task.project_id}`);
   return { ok: true };
 }

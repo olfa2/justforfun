@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -21,9 +21,34 @@ const emptyForm = {
   due_date: "",
 };
 
+function getInitialForm({ initialProject, workspaces, defaultWorkspaceId }) {
+  if (initialProject) {
+    return {
+      workspaceId: initialProject.workspace_id || "",
+      name: initialProject.name || "",
+      description: initialProject.description || "",
+      status: initialProject.status || "active",
+      color: initialProject.color || COLORS[0],
+      start_date: initialProject.start_date || "",
+      due_date: initialProject.due_date || "",
+    };
+  }
+
+  return {
+    ...emptyForm,
+    workspaceId: defaultWorkspaceId || workspaces[0]?.id || "",
+  };
+}
+
 // Gemeinsames Modal zum Erstellen und Bearbeiten von Projekten.
-export function ProjectModal({
-  open,
+export function ProjectModal(props) {
+  if (!props.open) return null;
+
+  const key = props.initialProject?.id || `new-${props.defaultWorkspaceId || ""}`;
+  return <ProjectModalContent key={key} {...props} />;
+}
+
+function ProjectModalContent({
   onClose,
   onSubmit,
   onDelete,
@@ -32,35 +57,12 @@ export function ProjectModal({
   defaultWorkspaceId,
 }) {
   const isEdit = Boolean(initialProject);
-  const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(() =>
+    getInitialForm({ initialProject, workspaces, defaultWorkspaceId })
+  );
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    setError("");
-    if (initialProject) {
-      setForm({
-        workspaceId: initialProject.workspace_id || "",
-        name: initialProject.name || "",
-        description: initialProject.description || "",
-        status: initialProject.status || "active",
-        color: initialProject.color || COLORS[0],
-        start_date: initialProject.start_date || "",
-        due_date: initialProject.due_date || "",
-      });
-    } else {
-      setForm({
-        ...emptyForm,
-        workspaceId: defaultWorkspaceId || workspaces[0]?.id || "",
-      });
-    }
-    // Nur beim Öffnen / Wechsel des bearbeiteten Projekts neu befüllen.
-    // workspaces/defaultWorkspaceId bewusst nicht als Dependency (sonst Endlosschleife
-    // durch neue Array-Referenz pro Render).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, initialProject]);
 
   function update(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -99,7 +101,7 @@ export function ProjectModal({
 
   return (
     <Modal
-      open={open}
+      open
       onClose={onClose}
       title={isEdit ? "Projekt bearbeiten" : "Neues Projekt"}
     >

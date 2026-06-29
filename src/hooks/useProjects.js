@@ -25,8 +25,30 @@ export function useProjects(workspaceId) {
   }, [workspaceId]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    let ignore = false;
+
+    async function load() {
+      const supabase = createClient();
+      let query = supabase
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (workspaceId) query = query.eq("workspace_id", workspaceId);
+
+      const { data } = await query;
+      if (!ignore) {
+        setProjects(data || []);
+        setLoading(false);
+      }
+    }
+
+    load();
+
+    return () => {
+      ignore = true;
+    };
+  }, [workspaceId]);
 
   return { projects, loading, refresh };
 }

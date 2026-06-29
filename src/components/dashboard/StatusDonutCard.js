@@ -5,15 +5,18 @@ export function StatusDonutCard({ statusCounts, total, completionRate }) {
   const r = 54;
   const C = 2 * Math.PI * r;
 
-  let acc = 0;
   const segments = statusCounts
     .filter((s) => s.count > 0)
-    .map((s) => {
+    .reduce(
+      ({ offset, items }, s) => {
       const len = total ? (s.count / total) * C : 0;
-      const seg = { ...s, len, offset: acc };
-      acc += len;
-      return seg;
-    });
+        return {
+          offset: offset + len,
+          items: [...items, { ...s, len, offset }],
+        };
+      },
+      { offset: 0, items: [] }
+    ).items;
 
   return (
     <div className="rounded-xl border border-border bg-card px-5 py-[18px]">

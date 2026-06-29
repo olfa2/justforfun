@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireProjectAccess, requireTaskAccess, requireUser } from "@/lib/authz";
 
 // Laufenden Timer (ohne stopped_at) finalisieren.
 async function stopRunning(supabase, userId) {
@@ -26,23 +27,37 @@ async function stopRunning(supabase, userId) {
   }
 }
 
+async function validateTaskProject(supabase, taskId, projectId) {
+  if (!taskId) return null;
+
+  const taskAccess = await requireTaskAccess(supabase, taskId);
+  if (taskAccess.error) return taskAccess;
+  if (taskAccess.task.project_id !== projectId) {
+    return { error: "Aufgabe gehört nicht zu diesem Projekt." };
+  }
+
+  return null;
+}
+
 // Timer für eine Aufgabe/ein Projekt starten (stoppt einen evtl. laufenden zuerst).
 export async function startTimer({ taskId, projectId, billable = true }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Nicht angemeldet." };
   if (!projectId) return { error: "Bitte ein Projekt wählen." };
 
-  await stopRunning(supabase, user.id);
+  const access = await requireProjectAccess(supabase, projectId);
+  if (access.error) return { error: access.error };
+
+  const taskError = await validateTaskProject(supabase, taskId, projectId);
+  if (taskError?.error) return { error: taskError.error };
+
+  await stopRunning(supabase, access.user.id);
 
   const { data, error } = await supabase
     .from("time_entries")
     .insert({
       task_id: taskId || null,
       project_id: projectId,
-      user_id: user.id,
+      user_id: access.user.id,
       started_at: new Date().toISOString(),
       billable,
     })
@@ -56,12 +71,10 @@ export async function startTimer({ taskId, projectId, billable = true }) {
 
 export async function stopTimer() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Nicht angemeldet." };
+  const auth = await requireUser(supabase);
+  if (auth.error) return { error: auth.error };
 
-  await stopRunning(supabase, user.id);
+  await stopRunning(supabase, auth.user.id);
   revalidatePath("/time-tracking");
   return { ok: true };
 }
@@ -77,11 +90,13 @@ export async function addManualEntry({
   billable = true,
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Nicht angemeldet." };
   if (!projectId) return { error: "Bitte ein Projekt wählen." };
+
+  const access = await requireProjectAccess(supabase, projectId);
+  if (access.error) return { error: access.error };
+
+  const taskError = await validateTaskProject(supabase, taskId, projectId);
+  if (taskError?.error) return { error: taskError.error };
 
   const seconds = (Number(hours) || 0) * 3600 + (Number(minutes) || 0) * 60;
   if (seconds <= 0) return { error: "Bitte eine Dauer angeben." };
@@ -94,7 +109,7 @@ export async function addManualEntry({
     .insert({
       task_id: taskId || null,
       project_id: projectId,
-      user_id: user.id,
+      user_id: access.user.id,
       started_at: start.toISOString(),
       stopped_at: end.toISOString(),
       duration_seconds: seconds,
